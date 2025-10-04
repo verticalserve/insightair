@@ -1,0 +1,77 @@
+# Task Properties: archive_source
+# Data archival task properties
+---
+# Source Configuration
+source_path: "${target_bucket}/${target_path}/{{ ds }}/"
+source_include_patterns:
+  - "*.txt"
+  - "*.txt.gz"
+  - "*.json"
+  - "metadata.json"
+  - "schema.json"
+
+# Archive Configuration  
+archive_bucket: "${archive_bucket}"
+archive_path: "${archive_path}/{{ ds }}/"
+archive_retention_days: "${archive_retention_days}"
+
+# Archive Operations
+operations:
+  - type: "copy"
+    description: "Copy processed files to archive location"
+    preserve_metadata: true
+    verify_copy: true
+    
+  - type: "compress"
+    description: "Apply additional compression to archive files"
+    compression_algorithm: "gzip"
+    compression_level: 9
+    
+  - type: "index"
+    description: "Create archive index for easier retrieval"
+    index_format: "json"
+    include_checksums: true
+
+# Archive Metadata
+archive_metadata:
+  classification: "confidential"
+  retention_policy: "${archive_retention_days} days"
+  compliance_tags:
+    - "policy_data"
+    - "financial_records"
+    - "customer_data"
+  created_by: "{{ dag.dag_id }}"
+  created_date: "{{ ds }}"
+  source_workflow: "{{ dag.dag_id }}"
+
+# Verification Settings
+verification:
+  verify_archive_integrity: true
+  checksum_algorithm: "sha256"
+  verify_file_count: true
+  verify_total_size: true
+
+# Cleanup Settings
+cleanup:
+  cleanup_source_after_archive: false  # Keep source for immediate access
+  cleanup_temp_files: true
+  cleanup_failed_archives: true
+
+# Performance Settings
+performance:
+  parallel_transfers: true
+  max_concurrent_transfers: 5
+  transfer_chunk_size_mb: 64
+  timeout_minutes: 30
+
+# Error Handling
+error_handling:
+  retry_failed_transfers: true
+  max_retry_attempts: 3
+  continue_on_partial_failure: false
+  
+# Monitoring
+monitoring:
+  track_transfer_metrics: true
+  log_transfer_progress: true
+  alert_on_archive_failure: true

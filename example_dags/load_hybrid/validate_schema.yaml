@@ -1,0 +1,45 @@
+# Task Properties: validate_schema
+# Database schema compatibility validation
+---
+# Schema Validation Configuration
+schema_checks:
+  - table: "${source_schema}.policy_history"
+    required_columns:
+      - name: "policy_number"
+        type: "varchar"
+        nullable: false
+      - name: "company_name"
+        type: "varchar"
+        nullable: false
+      - name: "created_date"
+        type: "timestamp"
+        nullable: false
+      - name: "policy_type_id"
+        type: "integer"
+        nullable: true
+    
+  - table: "${source_schema}.policy_types"
+    required_columns:
+      - name: "policy_type_id"
+        type: "integer"
+        nullable: false
+      - name: "policy_type_name"
+        type: "varchar"
+        nullable: false
+
+# Schema Query
+validation_query: |
+  SELECT 
+    table_name,
+    column_name,
+    data_type,
+    is_nullable
+  FROM information_schema.columns 
+  WHERE table_schema = '${source_schema}'
+    AND table_name IN ('policy_history', 'policy_types', 'brokers')
+  ORDER BY table_name, ordinal_position
+
+# Validation Settings
+connection_id: "${source_connection_id}"
+fail_on_schema_mismatch: true
+log_schema_details: true

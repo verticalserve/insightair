@@ -1,0 +1,134 @@
+# Task Properties: quality_check (FLAT STRUCTURE)
+# All properties flat for dynamic parameter replacement
+---
+# Basic Configuration - Flat
+input_path: "${target_bucket}/${target_path}/{{ ds }}/"
+input_bucket: "${target_bucket}"
+input_path_template: "${target_path}/{{ ds }}/"
+enable_checks: "${quality_enable_checks}"
+timeout_minutes: 15
+
+# File-level Check Parameters - Flat for easy override
+file_check_enabled: true
+file_min_count: 1
+file_min_size_mb: 0.1
+file_expected_extensions: ".txt,.txt.gz"
+file_check_timeout_seconds: 300
+
+# Content Check Parameters - Flat  
+content_check_enabled: true
+content_min_records: "${quality_min_record_count}"
+content_max_null_percentage: "${quality_max_null_percentage}"
+content_required_patterns: "POLICY RECORD,Policy Number:,Company:,Policy Type:"
+content_record_delimiter: "====================================="
+
+# Content-level Checks
+content_checks:
+  - type: "pattern_validation"
+    name: "required_headers_check"
+    required_patterns: 
+      - "POLICY RECORD"
+      - "Policy Number:"
+      - "Company:"
+      - "Policy Type:"
+    description: "Validate required text patterns exist"
+    
+  - type: "record_count"
+    name: "minimum_records_check"
+    min_records: "${quality_min_record_count}"
+    record_delimiter: "====================================="
+    description: "Ensure minimum number of policy records"
+    
+  - type: "data_completeness"
+    name: "completeness_check"
+    required_fields:
+      - "Policy Number:"
+      - "Company:"
+      - "Policy Type:"
+    max_null_percentage: "${quality_max_null_percentage}"
+    description: "Check data completeness"
+
+# Advanced Quality Checks
+advanced_checks:
+  - type: "duplicate_detection"
+    name: "duplicate_policy_check"
+    unique_field_pattern: "Policy Number: (.+)"
+    description: "Detect duplicate policy numbers"
+    
+  - type: "format_consistency"
+    name: "date_format_check"
+    field_patterns:
+      - pattern: "Start Date: (\\d{4}-\\d{2}-\\d{2})"
+        format: "YYYY-MM-DD"
+      - pattern: "End Date: (\\d{4}-\\d{2}-\\d{2})"
+        format: "YYYY-MM-DD"
+    description: "Validate date format consistency"
+    
+  - type: "business_rules"
+    name: "business_validation"
+    rules:
+      - rule: "policy_dates_valid"
+        description: "End date should be after start date"
+        validation_script: |
+          import re
+          from datetime import datetime
+          
+          start_match = re.search(r'Start Date: (\d{4}-\d{2}-\d{2})', record)
+          end_match = re.search(r'End Date: (\d{4}-\d{2}-\d{2})', record)
+          
+          if start_match and end_match:
+              start_date = datetime.strptime(start_match.group(1), '%Y-%m-%d')
+              end_date = datetime.strptime(end_match.group(1), '%Y-%m-%d')
+              return end_date > start_date
+          return True
+
+# Advanced Check Parameters - Flat
+advanced_duplicate_detection_enabled: true
+advanced_format_consistency_enabled: true
+advanced_business_rules_enabled: true
+advanced_date_validation_enabled: true
+
+# Duplicate Detection - Flat
+duplicate_check_field_pattern: "Policy Number: (.+)"
+duplicate_check_enabled: true
+duplicate_check_fail_on_duplicates: false
+
+# Format Consistency - Flat  
+format_check_date_pattern: "\\d{4}-\\d{2}-\\d{2}"
+format_check_date_format: "YYYY-MM-DD"
+format_check_enabled: true
+
+# Business Rules - Flat
+business_rules_enabled: true
+business_rules_validate_date_logic: true
+business_rules_validate_premium_ranges: true
+
+# Quality Metrics - Flat
+metrics_collect_enabled: true
+metrics_output_bucket: "${target_bucket}"
+metrics_output_path: "quality_metrics/{{ ds }}/"
+metrics_format: "json"
+metrics_include_total_records: true
+metrics_include_duplicate_count: true
+metrics_include_null_fields: true
+metrics_include_processing_time: true
+
+# Error Handling - Flat
+error_fail_on_quality_issues: true
+error_quality_threshold_percentage: 95
+error_generate_report: true
+error_report_bucket: "${target_bucket}"
+error_report_path: "quality_reports/{{ ds }}/"
+error_log_issues: true
+
+# Sampling Configuration - Flat
+sampling_enabled: false
+sampling_percentage: 10
+sampling_method: "random"
+sampling_max_records: 10000
+
+# Performance Settings - Flat
+performance_parallel_enabled: true
+performance_max_concurrent_checks: 3
+performance_timeout_minutes: 15
+performance_memory_limit_mb: 2048

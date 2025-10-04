@@ -1,0 +1,199 @@
+# Task Properties: send_notification (FLAT STRUCTURE)
+# All properties flat for dynamic parameter replacement
+---
+# Basic Email Configuration - Flat for easy override
+email_to: "${ops_emails}"
+email_subject: "Policy History Text Processing Complete - {{ ds }}"
+email_type: "html"
+email_timeout_seconds: 30
+
+# Email Server Configuration - Flat
+smtp_use_default: true
+smtp_host: "${smtp_host}"
+smtp_port: 587
+smtp_use_tls: true
+smtp_timeout_seconds: 30
+
+# Conditional Recipients - Flat
+email_quality_team: "data-quality-team@company.com"
+email_capacity_team: "capacity-planning@company.com"
+email_ops_team: "${ops_emails}"
+
+# Conditional Sending - Flat  
+send_on_success: true
+send_on_failure: true
+send_on_retry: false
+send_on_quality_issues: true
+send_on_high_volume: true
+
+# Thresholds for Conditional Sending - Flat
+quality_threshold_percentage: 95
+high_volume_threshold_records: 10000
+
+# Attachment Configuration - Flat
+attachment_quality_report_enabled: true
+attachment_metadata_enabled: true
+attachment_max_size_mb: 10
+
+# Email Template - Complex HTML template kept in task file
+html_content: |
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { background-color: #2E86C1; color: white; padding: 15px; border-radius: 5px; }
+          .content { padding: 20px; background-color: #f8f9fa; border-radius: 5px; margin: 10px 0; }
+          .metrics { display: flex; justify-content: space-between; margin: 15px 0; }
+          .metric-box { background-color: white; padding: 15px; border-radius: 5px; text-align: center; width: 22%; }
+          .metric-value { font-size: 24px; font-weight: bold; color: #2E86C1; }
+          .metric-label { font-size: 12px; color: #666; }
+          .footer { background-color: #34495E; color: white; padding: 10px; border-radius: 5px; text-align: center; }
+          .success { color: #27AE60; font-weight: bold; }
+          .error { color: #E74C3C; font-weight: bold; }
+          .warning { color: #F39C12; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #2E86C1; color: white; }
+      </style>
+  </head>
+  <body>
+      <div class="header">
+          <h2>🏢 Policy History Processing Complete</h2>
+          <p>Workflow: {{ dag.dag_id }} | Execution Date: {{ ds }}</p>
+      </div>
+      
+      <div class="content">
+          <h3>📊 Processing Summary</h3>
+          <div class="metrics">
+              <div class="metric-box">
+                  <div class="metric-value">{{ ti.xcom_pull(task_ids='extract_policy_data', key='record_count') or 'N/A' }}</div>
+                  <div class="metric-label">Records Processed</div>
+              </div>
+              <div class="metric-box">
+                  <div class="metric-value">{{ ti.xcom_pull(task_ids='quality_check', key='quality_score') or 'N/A' }}%</div>
+                  <div class="metric-label">Quality Score</div>
+              </div>
+              <div class="metric-box">
+                  <div class="metric-value">{{ ti.xcom_pull(task_ids='extract_policy_data', key='processing_time') or 'N/A' }}s</div>
+                  <div class="metric-label">Processing Time</div>
+              </div>
+              <div class="metric-box">
+                  <div class="metric-value">{{ ti.xcom_pull(task_ids='quality_check', key='file_count') or 'N/A' }}</div>
+                  <div class="metric-label">Output Files</div>
+              </div>
+          </div>
+          
+          <h3>✅ Task Status</h3>
+          <table>
+              <tr><th>Task</th><th>Status</th><th>Duration</th><th>Details</th></tr>
+              <tr>
+                  <td>Source Validation</td>
+                  <td><span class="success">SUCCESS</span></td>
+                  <td>{{ ti.xcom_pull(task_ids='validate_source', key='duration') or 'N/A' }}</td>
+                  <td>{{ ti.xcom_pull(task_ids='validate_source', key='record_count') or 'N/A' }} records validated</td>
+              </tr>
+              <tr>
+                  <td>Data Extraction</td>
+                  <td><span class="success">SUCCESS</span></td>
+                  <td>{{ ti.xcom_pull(task_ids='extract_policy_data', key='duration') or 'N/A' }}</td>
+                  <td>Text conversion completed</td>
+              </tr>
+              <tr>
+                  <td>Quality Check</td>
+                  <td><span class="success">SUCCESS</span></td>
+                  <td>{{ ti.xcom_pull(task_ids='quality_check', key='duration') or 'N/A' }}</td>
+                  <td>All quality checks passed</td>
+              </tr>
+              <tr>
+                  <td>Metadata Creation</td>
+                  <td><span class="success">SUCCESS</span></td>
+                  <td>{{ ti.xcom_pull(task_ids='create_metadata', key='duration') or 'N/A' }}</td>
+                  <td>Comprehensive metadata generated</td>
+              </tr>
+              <tr>
+                  <td>Data Archival</td>
+                  <td><span class="success">SUCCESS</span></td>
+                  <td>{{ ti.xcom_pull(task_ids='archive_source', key='duration') or 'N/A' }}</td>
+                  <td>{{ ti.xcom_pull(task_ids='archive_source', key='archived_size_mb') or 'N/A' }} MB archived</td>
+              </tr>
+          </table>
+          
+          <h3>📁 Output Locations</h3>
+          <ul>
+              <li><strong>Primary Output:</strong> s3://${target_bucket}/${target_path}/{{ ds }}/</li>
+              <li><strong>Archive Location:</strong> s3://${archive_bucket}/${archive_path}/{{ ds }}/</li>
+              <li><strong>Metadata:</strong> s3://${target_bucket}/${target_path}/{{ ds }}/metadata.json</li>
+              <li><strong>Quality Report:</strong> s3://${target_bucket}/quality_reports/{{ ds }}/</li>
+          </ul>
+          
+          <h3>📈 Business Metrics</h3>
+          <table>
+              <tr><th>Metric</th><th>Value</th></tr>
+              <tr><td>Total Gross Premium</td><td>${{ ti.xcom_pull(task_ids='create_metadata', key='total_premium') or 'N/A' | number_format }}</td></tr>
+              <tr><td>Active Policies</td><td>{{ ti.xcom_pull(task_ids='create_metadata', key='active_policies') or 'N/A' }}</td></tr>
+              <tr><td>Coverage Territories</td><td>{{ ti.xcom_pull(task_ids='create_metadata', key='territories') or 'N/A' }}</td></tr>
+              <tr><td>Top Broker</td><td>{{ ti.xcom_pull(task_ids='create_metadata', key='top_broker') or 'N/A' }}</td></tr>
+          </table>
+      </div>
+      
+      <div class="footer">
+          <p>🤖 Generated by InsightAir Framework | {{ macros.datetime.now().strftime('%Y-%m-%d %H:%M:%S') }} UTC</p>
+          <p>For questions, contact: ${ops_emails}</p>
+      </div>
+  </body>
+  </html>
+
+# Alternative Plain Text Content
+text_content: |
+  Policy History Text Processing Complete
+  ======================================
+  
+  Workflow: {{ dag.dag_id }}
+  Execution Date: {{ ds }}
+  Completed At: {{ macros.datetime.now().strftime('%Y-%m-%d %H:%M:%S') }} UTC
+  
+  PROCESSING SUMMARY:
+  ------------------
+  Records Processed: {{ ti.xcom_pull(task_ids='extract_policy_data', key='record_count') or 'N/A' }}
+  Processing Time: {{ ti.xcom_pull(task_ids='extract_policy_data', key='processing_time') or 'N/A' }} seconds
+  Quality Score: {{ ti.xcom_pull(task_ids='quality_check', key='quality_score') or 'N/A' }}%
+  Output Files: {{ ti.xcom_pull(task_ids='quality_check', key='file_count') or 'N/A' }}
+  
+  OUTPUT LOCATIONS:
+  ----------------
+  Primary: s3://${target_bucket}/${target_path}/{{ ds }}/
+  Archive: s3://${archive_bucket}/${archive_path}/{{ ds }}/
+  Metadata: s3://${target_bucket}/${target_path}/{{ ds }}/metadata.json
+  
+  All tasks completed successfully.
+  
+  Questions? Contact: ${ops_emails}
+
+# Template Customization - Flat
+template_include_metrics: true
+template_include_task_status: true
+template_include_business_metrics: true
+template_include_output_locations: true
+template_show_errors: true
+template_show_warnings: true
+
+# Branding and Styling - Flat
+template_header_color: "#2E86C1"
+template_content_background: "#f8f9fa"
+template_footer_color: "#34495E"
+template_success_color: "#27AE60"
+template_error_color: "#E74C3C"
+template_warning_color: "#F39C12"
+
+# Content Control - Flat
+content_max_errors_shown: 10
+content_max_warnings_shown: 5
+content_truncate_long_values: true
+content_max_value_length: 100
+
+# Monitoring Integration - Flat  
+monitoring_update_dashboard: true
+monitoring_dashboard_url: "${dashboard_url}"
+monitoring_log_email_sent: true
+monitoring_track_open_rates: false

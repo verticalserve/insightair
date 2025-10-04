@@ -1,0 +1,155 @@
+# InsightAir Framework - Environment Configuration
+# Best practices: Centralized configuration with environment-specific overrides
+---
+# Global Environment Settings
+environment: ${AIRFLOW_ENV:-development}
+version: "1.0.0"
+
+# Cloud Provider Settings
+cloud:
+  provider: ${CLOUD_PROVIDER:-aws}
+  region: ${CLOUD_REGION:-us-east-1}
+  
+# Database Configuration
+database:
+  # Connection pools and timeouts
+  connection_timeout: 30
+  query_timeout: 300
+  max_connections: 10
+  
+# Storage Configuration
+storage:
+  # S3/GCS bucket configurations
+  raw_bucket: ${RAW_BUCKET:-insightair-raw-${AIRFLOW_ENV}}
+  stage_bucket: ${STAGE_BUCKET:-insightair-stage-${AIRFLOW_ENV}}
+  archive_bucket: ${ARCHIVE_BUCKET:-insightair-archive-${AIRFLOW_ENV}}
+  config_bucket: ${CONFIG_BUCKET:-insightair-config-${AIRFLOW_ENV}}
+  
+  # File processing settings
+  file_retention_days: 30
+  max_file_size_mb: 1024
+
+# Processing Engine Configuration
+engines:
+  # Default engine settings
+  default_engine: glue
+  timeout_minutes: 60
+  retry_count: 3
+  
+  # Engine-specific configurations
+  glue:
+    max_concurrent_runs: 10
+    worker_type: "G.1X"
+    number_of_workers: 2
+    
+  emr:
+    instance_type: "m5.xlarge"
+    instance_count: 3
+    auto_terminate: true
+    
+  ray:
+    head_node_type: "m5.large"
+    worker_node_type: "m5.large"
+    max_workers: 5
+
+# Data Groups - Environment-specific configurations
+data_groups:
+  development:
+    raw_bucket: "insightair-dev-raw"
+    stage_bucket: "insightair-dev-stage" 
+    archive_bucket: "insightair-dev-archive"
+    database_host: "${DEV_DB_HOST:-dev-db.example.com}"
+    database_port: 5432
+    
+  staging:
+    raw_bucket: "insightair-staging-raw"
+    stage_bucket: "insightair-staging-stage"
+    archive_bucket: "insightair-staging-archive"
+    database_host: "${STAGING_DB_HOST:-staging-db.example.com}"
+    database_port: 5432
+    
+  production:
+    raw_bucket: "insightair-prod-raw"
+    stage_bucket: "insightair-prod-stage"
+    archive_bucket: "insightair-prod-archive"
+    database_host: "${PROD_DB_HOST:-prod-db.example.com}"
+    database_port: 5432
+
+# Connection IDs for Airflow
+connections:
+  # GCP connections
+  gcp_default: "google_cloud_default"
+  gcp_storage: "gcp_storage_conn"
+  gcp_bigquery: "gcp_bq_conn"
+  
+  # AWS connections  
+  aws_default: "aws_default"
+  aws_s3: "aws_s3_conn"
+  aws_glue: "aws_glue_conn"
+  
+  # Database connections
+  postgres_default: "postgres_default"
+  mysql_default: "mysql_default"
+
+# Security Settings
+security:
+  # Encryption settings
+  encrypt_at_rest: true
+  encrypt_in_transit: true
+  
+  # Secret management
+  secret_backend: ${SECRET_BACKEND:-airflow}
+  kms_key_id: ${KMS_KEY_ID}
+
+# Monitoring and Logging
+monitoring:
+  # Metrics collection
+  enable_metrics: true
+  metrics_namespace: "insightair"
+  
+  # Logging configuration
+  log_level: ${LOG_LEVEL:-INFO}
+  log_retention_days: 30
+  
+  # Alerting
+  alert_emails:
+    - ops@company.com
+    - data-engineering@company.com
+
+# Resource Limits
+resources:
+  # Memory and CPU limits
+  max_memory_gb: 8
+  max_cpu_cores: 4
+  
+  # Concurrency limits
+  max_concurrent_tasks: 50
+  max_concurrent_dag_runs: 10
+
+# Feature Flags
+features:
+  enable_data_quality_checks: true
+  enable_lineage_tracking: true
+  enable_cost_optimization: false
+  enable_auto_scaling: true
+
+# Integration Settings
+integrations:
+  # External systems
+  salesforce:
+    api_version: "v54.0"
+    timeout_seconds: 300
+    
+  tableau:
+    server_version: "2023.1"
+    extract_refresh_timeout: 1800
+    
+  # Notification systems
+  slack:
+    webhook_url: ${SLACK_WEBHOOK_URL}
+    channel: "#data-alerts"
+    
+  email:
+    smtp_host: ${SMTP_HOST:-localhost}
+    smtp_port: 587
+    use_tls: true

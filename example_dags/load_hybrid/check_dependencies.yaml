@@ -1,0 +1,35 @@
+# Task Properties: check_dependencies
+# Upstream data dependency validation
+---
+# Dependency Check Configuration
+dependencies:
+  - name: "policy_master_data"
+    type: "database_table"
+    connection_id: "${source_connection_id}"
+    table: "${source_schema}.policy_master"
+    check_type: "freshness"
+    max_age_hours: 24
+    
+  - name: "broker_reference_data"
+    type: "database_table"  
+    connection_id: "${source_connection_id}"
+    table: "${source_schema}.brokers"
+    check_type: "availability"
+    required: true
+    
+  - name: "upstream_file_feed"
+    type: "file"
+    location: "${source_bucket}/daily_feeds/{{ ds }}/"
+    file_pattern: "policy_updates_*.csv"
+    check_type: "existence"
+    required: false
+
+# Validation Rules
+validation_rules:
+  min_dependencies_met: 2
+  fail_on_missing_required: true
+  log_dependency_status: true
+
+# Timeout Configuration
+timeout_minutes: 10
+retry_count: 3

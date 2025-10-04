@@ -1,0 +1,329 @@
+# Properties for Audit and Lifecycle Example
+
+# Job boundary tasks
+job_start:
+  type: "START"
+  description: "Initialize job with comprehensive audit logging"
+  enable_default_audit: true
+  job_metadata:
+    environment: "{{ var.value.environment | default('development') }}"
+    data_source: "external_api"
+    batch_date: "{{ ds }}"
+    pipeline_version: "2.1.0"
+    expected_records: 10000
+  audit_actions:
+    - type: "audit_system"
+      event_type: "CUSTOM"
+      message: "Job initialization started with enhanced logging"
+      level: "INFO"
+      custom_data:
+        component: "data_pipeline"
+        stage: "initialization"
+        metadata: "{{ params.job_metadata }}"
+    - type: "callable"
+      callable: "send_job_start_notification"
+      kwargs:
+        recipient: "data-ops@company.com"
+        job_id: "{{ dag.dag_id }}"
+        run_id: "{{ run_id }}"
+    - type: "xcom"
+      key: "job_audit_start"
+      value:
+        timestamp: "{{ ts }}"
+        dag_id: "{{ dag.dag_id }}"
+        status: "started"
+  initialization_actions:
+    - type: "variable"
+      key: "current_job_run_id"
+      value: "{{ run_id }}"
+    - type: "variable"
+      key: "job_start_timestamp"
+      value: "{{ ts }}"
+    - type: "callable"
+      callable: "setup_job_environment"
+      kwargs:
+        env: "{{ var.value.environment }}"
+        job_metadata: "{{ params.job_metadata }}"
+    - type: "xcom"
+      key: "initialization_complete"
+      value:
+        status: "completed"
+        timestamp: "{{ ts }}"
+
+job_end:
+  type: "END"
+  description: "Finalize job with audit logging and cleanup"
+  enable_default_audit: true
+  calculate_job_duration: true
+  audit_actions:
+    - type: "audit_system"
+      event_type: "CUSTOM"
+      message: "Job completion audit with metrics"
+      level: "INFO"
+      custom_data:
+        component: "data_pipeline"
+        stage: "finalization"
+    - type: "callable"
+      callable: "generate_job_report"
+      kwargs:
+        include_metrics: true
+        send_email: true
+    - type: "log"
+      message: "Job completed successfully with full audit trail"
+      level: "INFO"
+  finalization_actions:
+    - type: "cleanup"
+      cleanup_type: "xcom"
+      xcom_keys: ["temp_data", "intermediate_results", "processing_state"]
+    - type: "notification"
+      notification_type: "email"
+      message: "Data pipeline completed successfully - {{ dag.dag_id }} at {{ ts }}"
+    - type: "callable"
+      callable: "archive_job_artifacts"
+      kwargs:
+        retention_days: 30
+        include_logs: true
+    - type: "callable"
+      callable: "update_job_catalog"
+      kwargs:
+        job_id: "{{ dag.dag_id }}"
+        run_id: "{{ run_id }}"
+        status: "completed"
+        duration: "{{ params.job_duration_seconds }}"
+
+# Data processing tasks with comprehensive audit
+extract_data:
+  type: "PYTHON"
+  description: "Extract data from external source with audit tracking"
+  enabled: true
+  python_callable: "extract_data_from_source"
+  op_kwargs:
+    source_url: "{{ var.value.data_source_url }}"
+    batch_date: "{{ ds }}"
+    expected_records: 10000
+  retry_count: 3
+  retry_delay_seconds: 300
+  timeout_minutes: 30
+  audit:
+    enabled: true
+    enable_task_audit: true
+    collect_metrics: true
+    audit_actions:
+      start:
+        - type: "log"
+          message: "Starting data extraction from {{ params.source_url }}"
+          level: "INFO"
+        - type: "audit_system"
+          event_type: "CUSTOM"
+          message: "Data extraction started"
+          level: "INFO"
+          custom_data:
+            component: "extractor"
+            source: "external_api"
+            batch_date: "{{ ds }}"
+        - type: "callable"
+          callable: "log_extraction_start"
+          kwargs:
+            source: "{{ params.source_url }}"
+            expected_records: "{{ params.expected_records }}"
+      success:
+        - type: "audit_system"
+          event_type: "CUSTOM"
+          message: "Data extraction completed successfully"
+          level: "INFO"
+          custom_data:
+            component: "extractor"
+            records_extracted: "{{ ti.xcom_pull(key='records_extracted') }}"
+        - type: "callable"
+          callable: "validate_extraction_results"
+          kwargs:
+            min_records: 1000
+        - type: "xcom"
+          key: "extraction_audit"
+          value:
+            status: "success"
+            timestamp: "{{ ts }}"
+            records: "{{ ti.xcom_pull(key='records_extracted') }}"
+      failure:
+        - type: "callable"
+          callable: "handle_extraction_failure"
+          kwargs:
+            alert_channels: ["slack", "email"]
+            escalate: true
+        - type: "audit_system"
+          event_type: "CUSTOM"
+          message: "Data extraction failed - investigating"
+          level: "ERROR"
+      end:
+        - type: "log"
+          message: "Data extraction task completed"
+          level: "INFO"
+        - type: "xcom"
+          key: "extraction_completed"
+          value:
+            timestamp: "{{ ts }}"
+            duration: "{{ params.duration_seconds }}"
+    custom_hooks:
+      on_start: "setup_extraction_environment"
+      on_success: "cleanup_extraction_temp_files"
+      on_failure: "preserve_extraction_state_for_debug"
+      on_end: "log_extraction_metrics"
+
+optional_validation:
+  type: "PYTHON"
+  description: "Optional data validation step - currently disabled"
+  enabled: false
+  disabled_reason: "Validation disabled for performance testing - re-enable after sprint"
+  python_callable: "validate_extracted_data"
+  op_kwargs:
+    validation_rules: ["completeness", "consistency", "accuracy"]
+    threshold: 0.95
+  audit:
+    enabled: true
+    audit_actions:
+      start:
+        - type: "log"
+          message: "Data validation would start here if enabled"
+          level: "INFO"
+
+transform_data:
+  type: "PYTHON"
+  description: "Transform extracted data with detailed audit logging"
+  enabled: true
+  python_callable: "transform_data_pipeline"
+  op_kwargs:
+    transformation_config: "{{ var.value.transform_config }}"
+    output_format: "parquet"
+    partitioning: ["year", "month", "day"]
+  retry_count: 2
+  retry_delay_seconds: 180
+  audit:
+    enabled: true
+    enable_task_audit: true
+    collect_metrics: true
+    audit_actions:
+      start:
+        - type: "audit_system"
+          event_type: "CUSTOM" 
+          message: "Data transformation pipeline started"
+          level: "INFO"
+          custom_data:
+            component: "transformer"
+            input_records: "{{ ti.xcom_pull(task_ids='extract_data', key='records_extracted') }}"
+        - type: "callable"
+          callable: "prepare_transformation_environment"
+      success:
+        - type: "callable"
+          callable: "validate_transformation_quality"
+          kwargs:
+            quality_threshold: 0.98
+        - type: "xcom"
+          key: "transformation_audit"
+          value:
+            input_records: "{{ ti.xcom_pull(task_ids='extract_data', key='records_extracted') }}"
+            output_records: "{{ ti.xcom_pull(key='records_transformed') }}"
+            quality_score: "{{ ti.xcom_pull(key='quality_score') }}"
+      failure:
+        - type: "callable"
+          callable: "analyze_transformation_failure"
+        - type: "audit_system"
+          event_type: "CUSTOM"
+          message: "Transformation failed - analyzing root cause"
+          level: "ERROR"
+    custom_hooks:
+      on_start: "initialize_transformation_context"
+      on_success: "finalize_transformation_output"
+      on_end: "cleanup_transformation_resources"
+
+load_data:
+  type: "PYTHON"
+  description: "Load transformed data to data warehouse"
+  enabled: true
+  python_callable: "load_data_to_warehouse"
+  op_kwargs:
+    target_table: "{{ var.value.target_table }}"
+    load_mode: "overwrite"
+    partition_date: "{{ ds }}"
+  audit:
+    enabled: true
+    enable_task_audit: true
+    collect_metrics: true
+    audit_actions:
+      start:
+        - type: "audit_system"
+          event_type: "CUSTOM"
+          message: "Data loading to warehouse started"
+          level: "INFO"
+          custom_data:
+            component: "loader"
+            target_table: "{{ params.target_table }}"
+            partition_date: "{{ ds }}"
+        - type: "callable"
+          callable: "prepare_warehouse_connection"
+      success:
+        - type: "callable"
+          callable: "verify_data_load"
+          kwargs:
+            expected_count: "{{ ti.xcom_pull(task_ids='transform_data', key='records_transformed') }}"
+        - type: "audit_system"
+          event_type: "CUSTOM"  
+          message: "Data successfully loaded to warehouse"
+          level: "INFO"
+          custom_data:
+            records_loaded: "{{ ti.xcom_pull(key='records_loaded') }}"
+            load_duration: "{{ params.duration_seconds }}"
+      failure:
+        - type: "callable"
+          callable: "handle_load_failure"
+          kwargs:
+            rollback: true
+            notify_dba: true
+
+generate_reports:
+  type: "PYTHON"
+  description: "Generate data quality and processing reports"
+  enabled: true
+  python_callable: "generate_processing_reports"
+  op_kwargs:
+    report_types: ["quality", "volume", "performance"]
+    output_path: "s3://reports/daily/{{ ds }}/"
+    include_charts: true
+  audit:
+    enabled: true
+    enable_task_audit: true
+    audit_actions:
+      start:
+        - type: "log"
+          message: "Starting report generation for {{ ds }}"
+          level: "INFO"
+      success:
+        - type: "audit_system"
+          event_type: "CUSTOM"
+          message: "Reports generated successfully"
+          level: "INFO"
+          custom_data:
+            reports_generated: "{{ ti.xcom_pull(key='reports_generated') }}"
+            output_location: "{{ params.output_path }}"
+        - type: "xcom"
+          key: "reporting_completed"
+          value:
+            timestamp: "{{ ts }}"
+            reports: "{{ ti.xcom_pull(key='reports_generated') }}"
+            status: "completed"
+    custom_hooks:
+      on_success: "send_reports_to_stakeholders"
+
+# Global audit configuration
+global_audit_config:
+  enabled: true
+  level: "INFO"
+  destinations:
+    - type: "logger"
+      logger_name: "insightair.audit"
+      enabled: true
+    - type: "xcom"
+      key_prefix: "audit_event"
+      enabled: true
+    - type: "custom"
+      callable: "custom_audit_handler"
+      enabled: true

@@ -1,0 +1,73 @@
+# Task Properties: validation_summary
+# Generate validation summary report
+---
+script_type: "python"
+timeout_minutes: 5
+
+# Summary Generation Script
+script_content: |
+  import json
+  from datetime import datetime
+  
+  def generate_validation_summary():
+      """Generate comprehensive validation summary"""
+      
+      # Get validation results from previous tasks
+      source_validation = task_instance.xcom_pull(task_ids='data_validation_group.validate_source')
+      dependency_check = task_instance.xcom_pull(task_ids='data_validation_group.check_dependencies') 
+      schema_validation = task_instance.xcom_pull(task_ids='data_validation_group.validate_schema')
+      
+      # Build validation summary
+      summary = {
+          "validation_timestamp": datetime.now().isoformat(),
+          "workflow": "{{ dag.dag_id }}",
+          "execution_date": "{{ ds }}",
+          
+          "source_validation": {
+              "status": source_validation.get('status', 'unknown') if source_validation else 'failed',
+              "record_count": source_validation.get('record_count', 0) if source_validation else 0,
+              "latest_data": source_validation.get('latest_date') if source_validation else None,
+              "issues": source_validation.get('issues', []) if source_validation else []
+          },
+          
+          "dependency_validation": {
+              "status": dependency_check.get('status', 'unknown') if dependency_check else 'failed',
+              "dependencies_met": dependency_check.get('dependencies_met', 0) if dependency_check else 0,
+              "required_dependencies": dependency_check.get('required_count', 0) if dependency_check else 0,
+              "missing_dependencies": dependency_check.get('missing', []) if dependency_check else []
+          },
+          
+          "schema_validation": {  
+              "status": schema_validation.get('status', 'unknown') if schema_validation else 'failed',
+              "tables_validated": schema_validation.get('table_count', 0) if schema_validation else 0,
+              "schema_issues": schema_validation.get('issues', []) if schema_validation else []
+          },
+          
+          "overall_status": "passed" if all([
+              source_validation and source_validation.get('status') == 'passed',
+              dependency_check and dependency_check.get('status') == 'passed', 
+              schema_validation and schema_validation.get('status') == 'passed'
+          ]) else "failed"
+      }
+      
+      # Save summary to S3
+      summary_key = f"validation_reports/{{ ds }}/validation_summary.json"
+      
+      # Upload to S3 (implementation depends on your S3 setup)
+      print(f"Validation Summary: {json.dumps(summary, indent=2)}")
+      
+      # Return summary for downstream tasks
+      return summary
+  
+  # Execute validation summary generation
+  validation_summary = generate_validation_summary()
+  
+  # Set XCom values for downstream tasks
+  task_instance.xcom_push(key='validation_summary', value=validation_summary)
+  task_instance.xcom_push(key='overall_status', value=validation_summary['overall_status'])
+  
+  print(f"Validation completed with status: {validation_summary['overall_status']}")
+
+# Output Configuration
+output_location: "${target_bucket}/validation_reports/{{ ds }}/validation_summary.json"
+log_summary: true

@@ -1,0 +1,31 @@
+# Simple DAG Configuration Example
+# Demonstrates basic task chain with InsightAir Framework
+---
+# Global Properties File Reference
+properties_file: "properties.yaml"
+
+# Task Chain Definition
+tasks:
+  - name: "start"
+    type: "START"
+    description: "Initialize the workflow"
+    
+  - name: "hello_world"
+    type: "PYTHON"
+    description: "Print hello world message"
+    parents: ["start"]
+    
+  - name: "process_data"
+    type: "PYTHON" 
+    description: "Process some sample data"
+    parents: ["hello_world"]
+    
+  - name: "send_notification"
+    type: "EMAIL"
+    description: "Send completion notification"
+    parents: ["process_data"]
+    
+  - name: "end"
+    type: "END"
+    description: "Mark workflow completion"
+    parents: ["send_notification"]

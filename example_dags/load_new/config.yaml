@@ -1,0 +1,205 @@
+# InsightAir Enhanced Configuration
+# Policy History Database to Text Processing Workflow
+---
+# Workflow Metadata
+metadata:
+  name: "na-policy-hist-db-edw-csv-to-text-load"
+  version: "2.0.0"
+  description: "Policy history database to text processing with enhanced configuration"
+  category: "data_processing"
+  priority: "P3"
+  data_group: "production"
+
+# Global Properties - Centralized configuration
+properties:
+  # Source Configuration
+  source:
+    database: "policy_history_db"
+    schema: "edw"
+    connection_id: "postgres_policy_db"
+    
+  # Target Configuration  
+  target:
+    bucket: "${STAGE_BUCKET}"
+    path: "policy/history/text_extracts"
+    format: "text"
+    
+  # Processing Configuration
+  processing:
+    engine: "glue"
+    batch_size: 1000
+    timeout_minutes: 45
+    retry_count: 3
+    
+  # Quality Configuration
+  quality:
+    enable_checks: true
+    min_record_count: 100
+    max_null_percentage: 10
+    
+  # Notification Configuration
+  notifications:
+    ops_emails: ["ops@company.com", "data-engineering@company.com"]
+    alert_on_failure: true
+    alert_on_sla_miss: true
+    sla_minutes: 30
+
+# Task Chain Definition - Customizable task flow
+tasks:
+  - name: "start"
+    type: "START"
+    description: "Initialize workflow execution"
+    timeout_minutes: 1
+    
+  - name: "validate_source"
+    type: "DB"
+    description: "Validate source database connectivity and data availability"
+    parents: ["start"]
+    timeout_minutes: 5
+    properties:
+      operation: "validate"
+      connection_id: "${source.connection_id}"
+      validation_query: "SELECT COUNT(*) FROM ${source.schema}.policy_history WHERE created_date >= CURRENT_DATE - INTERVAL '1 day'"
+      min_count: 1
+      
+  - name: "extract_policy_data"
+    type: "DB_TO_TEXT"
+    description: "Extract policy history data and convert to text format"
+    parents: ["validate_source"]
+    timeout_minutes: 30
+    properties:
+      # Source properties
+      connection_id: "${source.connection_id}"
+      database: "${source.database}"
+      schema: "${source.schema}"
+      
+      # Extraction query
+      query: |
+        SELECT 
+          policy_number,
+          company,
+          policy_type,
+          coverage_territory,
+          broker_name,
+          policy_details,
+          created_date
+        FROM ${source.schema}.policy_history 
+        WHERE created_date >= '{{ ds }}'
+        ORDER BY created_date
+        
+      # Output configuration
+      output_bucket: "${target.bucket}"
+      output_path: "${target.path}/{{ ds }}"
+      output_format: "text"
+      batch_size: "${processing.batch_size}"
+      
+      # Text processing options
+      text_template: |
+        Policy: {policy_number}
+        Company: {company}
+        Type: {policy_type}
+        Territory: {coverage_territory}
+        Broker: {broker_name}
+        Details: {policy_details}
+        Date: {created_date}
+        ---
+        
+  - name: "quality_check"
+    type: "DQ"
+    description: "Perform data quality checks on extracted text files"
+    parents: ["extract_policy_data"]
+    timeout_minutes: 10
+    properties:
+      input_path: "${target.bucket}/${target.path}/{{ ds }}/"
+      checks:
+        - type: "file_count"
+          min_files: 1
+        - type: "file_size"
+          min_size_mb: 0.1
+        - type: "content_validation"
+          required_patterns: ["Policy:", "Company:", "Type:"]
+          
+  - name: "create_metadata"
+    type: "SCRIPT"
+    description: "Generate metadata file for processed text data"  
+    parents: ["quality_check"]
+    timeout_minutes: 5
+    properties:
+      script_type: "python"
+      script_content: |
+        import json
+        from datetime import datetime
+        
+        metadata = {
+          "workflow": "{{ dag.dag_id }}",
+          "execution_date": "{{ ds }}",
+          "processed_at": datetime.now().isoformat(),
+          "source_database": "${source.database}",
+          "target_location": "${target.bucket}/${target.path}/{{ ds }}/",
+          "record_count": "{{ ti.xcom_pull(task_ids='extract_policy_data', key='record_count') }}",
+          "quality_status": "{{ ti.xcom_pull(task_ids='quality_check', key='status') }}"
+        }
+        
+        # Upload metadata to S3
+        s3_key = "${target.path}/{{ ds }}/metadata.json"
+        # Implementation here
+        
+      output_location: "${target.bucket}/${target.path}/{{ ds }}/metadata.json"
+      
+  - name: "archive_source"
+    type: "ARCHIVE"
+    description: "Archive processed source data"
+    parents: ["create_metadata"]
+    timeout_minutes: 10
+    properties:
+      source_path: "${target.bucket}/${target.path}/{{ ds }}/"
+      archive_bucket: "${ARCHIVE_BUCKET}"
+      archive_path: "policy/history/archive/{{ ds }}/"
+      retention_days: 90
+      
+  - name: "send_notification"
+    type: "EMAIL"
+    description: "Send completion notification"
+    parents: ["archive_source"]
+    timeout_minutes: 2
+    properties:
+      to: "${notifications.ops_emails}"
+      subject: "Policy History Text Processing Complete - {{ ds }}"
+      body: |
+        Workflow: {{ dag.dag_id }}
+        Execution Date: {{ ds }}
+        Status: SUCCESS
+        Records Processed: {{ ti.xcom_pull(task_ids='extract_policy_data', key='record_count') }}
+        Output Location: ${target.bucket}/${target.path}/{{ ds }}/
+        
+  - name: "end"
+    type: "END"
+    description: "Mark workflow completion"
+    parents: ["send_notification"]
+    timeout_minutes: 1
+
+# Environment-specific overrides
+environments:
+  development:
+    properties:
+      target:
+        bucket: "insightair-dev-stage"
+      notifications:
+        ops_emails: ["dev-team@company.com"]
+        sla_minutes: 60
+        
+  staging:
+    properties:
+      target:
+        bucket: "insightair-staging-stage"
+      processing:
+        timeout_minutes: 60
+        
+  production:
+    properties:
+      target:
+        bucket: "insightair-prod-stage"
+      processing:
+        timeout_minutes: 45
+      notifications:
+        sla_minutes: 30

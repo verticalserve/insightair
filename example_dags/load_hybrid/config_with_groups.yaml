@@ -1,0 +1,250 @@
+# InsightAir Hybrid Configuration - Task Chain with Task Groups
+# Supports Airflow Task Groups for better workflow organization
+---
+# Global Properties File Reference
+properties_file: "properties.yaml"
+
+# Task Chain Definition with Task Groups Support
+tasks:
+  - name: "start"
+    type: "START"
+    description: "Initialize workflow execution"
+  
+  # Task Group: Data Validation
+  - name: "data_validation_group"
+    type: "TASK_GROUP"
+    description: "Data validation and preparation tasks"
+    tooltip: "Validates source data and prepares for processing"
+    prefix_group_id: true
+    tasks:
+      - name: "validate_source"
+        type: "DB" 
+        description: "Validate source database connectivity and data availability"
+        properties_file: "validate_source.yaml"
+        
+      - name: "check_dependencies"
+        type: "SCRIPT"
+        description: "Check upstream data dependencies"
+        properties_file: "check_dependencies.yaml"
+        parents: ["validate_source"]
+        
+      - name: "validate_schema"
+        type: "DB"
+        description: "Validate database schema compatibility"  
+        properties_file: "validate_schema.yaml"
+        parents: ["validate_source"]
+        
+      - name: "validation_summary"
+        type: "SCRIPT"
+        description: "Generate validation summary report"
+        properties_file: "validation_summary.yaml"
+        parents: ["check_dependencies", "validate_schema"]
+    
+    # Task Group dependencies (external tasks)
+    parents: ["start"]
+  
+  # Task Group: Data Processing (with nested groups)
+  - name: "data_processing_group"
+    type: "TASK_GROUP"
+    description: "Main data processing pipeline"
+    tooltip: "Extract, transform, and process policy data"
+    prefix_group_id: true
+    tasks:
+      # Nested Task Group: Data Extraction
+      - name: "extraction_subgroup"
+        type: "TASK_GROUP"
+        description: "Data extraction operations"
+        tooltip: "Extract data from multiple sources"
+        tasks:
+          - name: "extract_policy_data"
+            type: "DB_TO_TEXT"
+            description: "Extract policy history data and convert to text format"
+            properties_file: "extract_policy_data.yaml"
+            
+          - name: "extract_metadata" 
+            type: "DB"
+            description: "Extract related metadata"
+            properties_file: "extract_metadata.yaml"
+            
+          - name: "merge_extracts"
+            type: "SCRIPT"
+            description: "Merge extracted data and metadata"
+            properties_file: "merge_extracts.yaml"
+            parents: ["extract_policy_data", "extract_metadata"]
+      
+      # Nested Task Group: Data Transformation
+      - name: "transformation_subgroup"
+        type: "TASK_GROUP"
+        description: "Data transformation operations"
+        tooltip: "Transform and enrich extracted data"
+        tasks:
+          - name: "apply_business_rules"
+            type: "SCRIPT"
+            description: "Apply business transformation rules"
+            properties_file: "apply_business_rules.yaml"
+            
+          - name: "enrich_data"
+            type: "SCRIPT"
+            description: "Enrich data with external sources"
+            properties_file: "enrich_data.yaml"
+            
+          - name: "format_output"
+            type: "SCRIPT"
+            description: "Format data for final output"
+            properties_file: "format_output.yaml"
+            parents: ["apply_business_rules", "enrich_data"]
+        
+        # Subgroup dependencies
+        parents: ["extraction_subgroup"]
+    
+    # Task Group dependencies (external tasks)
+    parents: ["data_validation_group"]
+  
+  # Task Group: Quality Assurance (parallel tasks)
+  - name: "quality_assurance_group"
+    type: "TASK_GROUP"
+    description: "Quality assurance and validation"
+    tooltip: "Comprehensive quality checks and validations"
+    prefix_group_id: false  # Don't prefix task IDs
+    tasks:
+      - name: "quality_check"
+        type: "DQ"
+        description: "Perform data quality checks on processed files"
+        properties_file: "quality_check.yaml"
+        
+      - name: "compliance_check" 
+        type: "SCRIPT"
+        description: "Verify compliance requirements"
+        properties_file: "compliance_check.yaml"
+        
+      - name: "performance_check"
+        type: "SCRIPT"
+        description: "Validate processing performance metrics"
+        properties_file: "performance_check.yaml"
+        
+      - name: "security_check"
+        type: "SCRIPT"
+        description: "Perform security validations"
+        properties_file: "security_check.yaml"
+        
+      # All QA tasks run in parallel, then merge results
+      - name: "qa_summary"
+        type: "SCRIPT"
+        description: "Generate comprehensive QA summary report"
+        properties_file: "qa_summary.yaml"
+        parents: ["quality_check", "compliance_check", "performance_check", "security_check"]
+    
+    # Task Group dependencies
+    parents: ["data_processing_group"]
+  
+  # Task Group: Data Management (conditional execution)
+  - name: "data_management_group"
+    type: "TASK_GROUP" 
+    description: "Data management and archival operations"
+    tooltip: "Manage processed data lifecycle"
+    prefix_group_id: true
+    tasks:
+      - name: "create_metadata"
+        type: "SCRIPT"
+        description: "Generate comprehensive processing metadata"
+        properties_file: "create_metadata.yaml"
+        
+      - name: "archive_source"
+        type: "ARCHIVE"
+        description: "Archive processed source data"
+        properties_file: "archive_source.yaml"
+        parents: ["create_metadata"]
+        
+      - name: "cleanup_temp"
+        type: "SCRIPT"
+        description: "Clean up temporary processing files"
+        properties_file: "cleanup_temp.yaml"
+        parents: ["archive_source"]
+        
+      # Conditional branching within group
+      - name: "decide_retention"
+        type: "BRANCH"
+        description: "Decide data retention strategy based on volume"
+        properties_file: "decide_retention.yaml"
+        parents: ["cleanup_temp"]
+        
+      - name: "long_term_storage"
+        type: "ARCHIVE"
+        description: "Move to long-term storage (large volumes)"
+        properties_file: "long_term_storage.yaml"
+        
+      - name: "standard_retention"
+        type: "SCRIPT"
+        description: "Apply standard retention policy (normal volumes)"
+        properties_file: "standard_retention.yaml"
+    
+    # Task Group dependencies
+    parents: ["quality_assurance_group"]
+  
+  # Task Group: Notifications and Reporting
+  - name: "notification_group"
+    type: "TASK_GROUP"
+    description: "Notifications and reporting"
+    tooltip: "Send notifications and generate reports"
+    prefix_group_id: true
+    tasks:
+      - name: "generate_reports"
+        type: "SCRIPT"
+        description: "Generate processing reports"
+        properties_file: "generate_reports.yaml"
+        
+      - name: "send_notification"
+        type: "EMAIL"
+        description: "Send completion notifications"
+        properties_file: "send_notification.yaml"
+        parents: ["generate_reports"]
+        
+      - name: "update_dashboard"
+        type: "HTTP_REQUEST"
+        description: "Update monitoring dashboard"
+        properties_file: "update_dashboard.yaml"
+        parents: ["generate_reports"]
+        
+      - name: "log_completion"
+        type: "SCRIPT"
+        description: "Log workflow completion to audit system"
+        properties_file: "log_completion.yaml"
+        parents: ["send_notification", "update_dashboard"]
+    
+    # Task Group dependencies
+    parents: ["data_management_group"]
+  
+  - name: "end"
+    type: "END"
+    description: "Mark workflow completion"
+    parents: ["notification_group"]
+
+# Task Group Configuration Options
+task_group_defaults:
+  prefix_group_id: true
+  tooltip: ""
+  ui_color: "#f0f0f0"
+  ui_fgcolor: "#000000"
+  
+# Advanced Task Group Patterns
+task_group_patterns:
+  # Dynamic task groups (created at runtime)
+  dynamic_groups:
+    - name: "process_regions"
+      type: "DYNAMIC_TASK_GROUP"
+      description: "Process data by regions (created dynamically)"
+      generator_script: "generate_region_tasks.py"
+      task_template:
+        type: "DB_TO_TEXT"
+        properties_template: "process_region_template.yaml"
+  
+  # Conditional task groups
+  conditional_groups:
+    - name: "emergency_processing"
+      type: "CONDITIONAL_TASK_GROUP"
+      condition: "{{ dag_run.conf.get('emergency_mode', False) }}"
+      description: "Emergency processing tasks (only when emergency_mode=True)"
+      tasks:
+        - name: "priority_extraction"
+          type: "DB_TO_TEXT"
+          properties_file: "priority_extraction.yaml"

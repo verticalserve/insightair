@@ -1,0 +1,62 @@
+---
+#Name: InsightAir Workflow Framework - Config Driven Airflow Framework
+#Solution: This solution is a part of InsightLake Data Platform - http://www.InsightLake.com.
+#Company: VerticalServe Inc - (Premier Data Consulting Experts) - http://www.VerticalServe.com
+#Version: 3.1
+#Notes: Use InsightLake Workflow Designer to generate the config files.
+
+# Cluster
+hive_metastore_url: "jdbc:mysql://bfd-mysql.gcp-dev.glb.us.walmart.net:3306/metastore"
+hive_metastore_username: "metastore"
+hive_metastore_password: "bfd_m@5D3v~2o22"
+subnet: "projects/shared-vpc-admin/regions/us-east4/subnetworks/prod-us-east4-01"
+
+profiles:
+  micro:
+    masters: 1
+    workers: 3
+    master_machine: "n1-standard-8"
+    master_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 512
+    worker_machine: "n1-standard-8"
+    worker_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 1024
+  
+  small:
+    masters: 1
+    workers: 1
+    master_machine: "m4.xlarge"
+    master_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 512
+    worker_machine: "g4dn.xlarge"
+    worker_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 1024
+  
+  medium:
+    masters: 1
+    workers: 0
+    master_machine: "n1-standard-4"
+    master_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 512
+    worker_machine: "n1-standard-4"
+    worker_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 512
+  
+  large:
+    masters: 1
+    workers: 0
+    master_machine: "n1-standard-4"
+    master_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 512
+    worker_machine: "n1-standard-4"
+    worker_disk_config:
+      disk_type:  "pd-standard"
+      disk_size: 512
+  

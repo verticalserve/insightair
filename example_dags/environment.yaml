@@ -1,0 +1,74 @@
+---
+#Name: InsightAir Workflow Framework - Config Driven Airflow Framework
+#Solution: This solution is a part of InsightLake Data Platform - http://www.InsightLake.com.
+#Company: VerticalServe Inc - (Premier Data Consulting Experts) - http://www.VerticalServe.com
+#Version: 3.1
+#Notes: Use InsightLake Workflow Designer to generate the config files.
+
+# Environment
+name: "NA-DEV"
+config_bucket: "s3://insightrag-job-config"
+sqoop_jars_path: "sqoop_jars"
+dq_framework_path: "scripts/datalake-dataquality-framework"
+current_user: "vgaur"
+certs_path: "db2_certs"
+serde_path: "s3://raw-knowledge-base/serde_jar"
+
+data_groups:
+  policy_ns:
+    project_id: "policy-ns-dev"
+    region: "us-east-1"
+    role_id: "arn:aws:iam::867344468918:role/AWSGlueServiceRole"
+    role_name: "AWSGlueServiceRole"
+    service_account: "svc-dl-k1-afaas-ns"
+    raw_bucket: "s3://insightrag-job-config"
+    archive_bucket: "s3://insightrag-job-config"
+    stage_bucket: "s3://insightrag-job-config"
+    done_bucket: "s3://insightrag-job-config"
+    phs_bucket: "phs"
+    gcp_conn_id: "aws-vserve"
+  claims_ns:
+    project_id: "policy-ns-dev"
+    region: "us-east-1"
+    role_id: "arn:aws:iam::867344468918:role/AWSGlueServiceRole"
+    role_name: "AWSGlueServiceRole"
+    service_account: "svc-dl-k1-afaas-ns"
+    raw_bucket: "s3://insightrag-job-config"
+    archive_bucket: "s3://insightrag-job-config"
+    stage_bucket: "s3://insightrag-job-config"
+    done_bucket: "s3://insightrag-job-config"
+    phs_bucket: "phs"
+    gcp_conn_id: "aws-vserve"
+  policy_se:
+    project_id: "policy-ns-dev"
+    region: "us-central1"
+    service_account: "svc-dl-k1-afaas-ns"
+    raw_bucket: "s3://raw-knowledge-base"
+    archive_bucket: "s3://raw-knowledge-base"
+    stage_bucket: "s3://raw-knowledge-base"
+    done_bucket: "s3://raw-knowledge-base"
+    phs_bucket: "phs"
+    gcp_conn_id: "aws-ns-conn"
+  policy_hs:
+    project_id: "policy-ns-dev"
+    region: "us-central1"
+    service_account: "svc-dl-k1-afaas-ns"
+    raw_bucket: "s3://raw-knowledge-base"
+    archive_bucket: "s3://raw-knowledge-base"
+    stage_bucket: "s3://raw-knowledge-base"
+    done_bucket: "s3://raw-knowledge-base"
+    phs_bucket: "phs"
+    gcp_conn_id: "aws-ns-conn"
+  hr_ns:
+    project_id: "policy-ns-dev"
+    region: "us-east-1"
+    role_id: "arn:aws:iam::867344468918:role/AWSGlueServiceRole"
+    role_name: "AWSGlueServiceRole"
+    service_account: "svc-dl-k1-afaas-ns"
+    raw_bucket: "s3://insightrag-job-config"
+    archive_bucket: "s3://insightrag-job-config"
+    stage_bucket: "s3://insightrag-job-config"
+    done_bucket: "s3://insightrag-job-config"
+    phs_bucket: "phs"
+    gcp_conn_id: "aws-vserve"
+

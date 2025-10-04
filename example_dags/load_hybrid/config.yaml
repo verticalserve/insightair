@@ -1,0 +1,52 @@
+# InsightAir Hybrid Configuration - Task Chain Definition Only
+# All properties moved to properties.yaml for consistent runtime override support
+---
+# Global Properties File Reference
+properties_file: "properties.yaml"
+
+# Task Chain Definition - Pure task flow definition for maximum visibility and customization
+tasks:
+  - name: "start"
+    type: "START"
+    description: "Initialize workflow execution"
+    
+  - name: "validate_source" 
+    type: "DB"
+    description: "Validate source database connectivity and data availability"
+    parents: ["start"]
+    properties_file: "validate_source.yaml"
+    
+  - name: "extract_policy_data"
+    type: "DB_TO_TEXT"
+    description: "Extract policy history data and convert to text format"
+    parents: ["validate_source"]
+    properties_file: "extract_policy_data.yaml"
+    
+  - name: "quality_check"
+    type: "DQ"
+    description: "Perform data quality checks on extracted text files"
+    parents: ["extract_policy_data"]
+    properties_file: "quality_check.yaml"
+    
+  - name: "create_metadata"
+    type: "SCRIPT"
+    description: "Generate metadata file for processed text data"
+    parents: ["quality_check"]
+    properties_file: "create_metadata.yaml"
+    
+  - name: "archive_source"
+    type: "ARCHIVE"
+    description: "Archive processed source data"
+    parents: ["create_metadata"]
+    properties_file: "archive_source.yaml"
+    
+  - name: "send_notification"
+    type: "EMAIL"
+    description: "Send completion notification"
+    parents: ["archive_source"]
+    properties_file: "send_notification.yaml"
+    
+  - name: "end"
+    type: "END"
+    description: "Mark workflow completion"
+    parents: ["send_notification"]

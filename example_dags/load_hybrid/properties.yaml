@@ -1,0 +1,102 @@
+# Global Properties - Flat structure for runtime parameter overrides
+# ALL properties in one place for consistent runtime override support
+# These properties can be easily overridden via Airflow Variables, DAG run conf, or environment variables
+---
+
+# Workflow Metadata Properties
+workflow_name: "na-policy-hist-db-edw-csv-to-text-load"
+workflow_version: "2.1.0"
+workflow_description: "Policy history database to text processing with hybrid configuration"
+workflow_category: "data_processing"
+workflow_priority: "P3"
+workflow_data_group: "production"
+
+# DAG Configuration Properties
+dag_schedule_interval: "@daily"
+dag_start_date: "2024-01-01"
+dag_catchup: false
+dag_max_active_runs: 1
+dag_max_active_tasks: 10
+dag_owner: "insightair"
+dag_depends_on_past: false
+
+# SLA and Notification Properties
+sla_minutes: 30
+dag_retries: 3
+dag_retry_delay_minutes: 5
+email_on_failure: true
+email_on_retry: false
+
+# DAG Tags (comma-separated for easy override)
+dag_tags: "Enhanced,Policy,P3,TextProcessing,Database,Hybrid"
+
+# Database Connection Properties
+source_database: "policy_history_db"
+source_schema: "edw"
+source_connection_id: "postgres_policy_db"
+
+# Target Storage Properties  
+target_bucket: "insightair-stage-prod"
+target_path: "policy/history/text_extracts"
+target_format: "text"
+
+# Archive Properties
+archive_bucket: "insightair-archive-prod"
+archive_path: "policy/history/archive"
+archive_retention_days: 90
+
+# Processing Properties
+processing_engine: "glue"
+batch_size: 1000
+timeout_minutes: 45
+retry_count: 3
+max_parallel_tasks: 5
+
+# Quality Check Properties
+quality_enable_checks: true
+quality_min_record_count: 100
+quality_max_null_percentage: 10
+quality_required_patterns: "Policy:,Company:,Type:"
+
+# Notification Properties
+ops_emails: "ops@company.com,data-engineering@company.com"
+alert_on_failure: true
+alert_on_sla_miss: true
+slack_webhook_url: ""
+slack_channel: "#data-alerts"
+
+# Environment-specific Properties (can be overridden)
+environment: "production" 
+region: "us-east-1"
+cluster_profile: "medium"
+
+# Security Properties
+encrypt_at_rest: true
+encrypt_in_transit: true
+kms_key_id: ""
+
+# Feature Flags
+enable_data_lineage: true
+enable_cost_optimization: false
+enable_parallel_processing: true
+
+# Runtime Override Examples:
+# These can be overridden via:
+# 1. Airflow Variables: Variable.get('source_database', 'default_value')
+# 2. DAG Run Conf: {{ dag_run.conf.get('batch_size', params.batch_size) }}
+# 3. Environment Variables: ${SOURCE_DATABASE:-policy_history_db}
+# 4. Dynamic Parameters: Passed at runtime via trigger_dag
+
+# Processing Limits
+max_memory_gb: 8
+max_cpu_cores: 4
+max_file_size_mb: 1024
+
+# Monitoring Properties
+metrics_namespace: "insightair"
+log_level: "INFO"
+log_retention_days: 30
+
+# Integration Properties
+salesforce_api_version: "v54.0"
+tableau_server_version: "2023.1"

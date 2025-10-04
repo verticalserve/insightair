@@ -1,0 +1,20 @@
+Company: Insurance Company Name
+Account Number: Unique Account Identifier
+Policy Number: Unique Policy Identifier
+Policy Type: Category of Insurance Policy
+Policy Start Date: Date Policy Coverage Begins
+Policy End Date: Date Policy Coverage Ends
+Broker Name: Name of Insurance Broker
+Broker Contact: Broker's Contact Information
+State: State of Policy Issuance
+Underwriter: Name of Policy Underwriter
+Product Name: Specific Insurance Product
+Coverage Territory: Geographical Area of Coverage
+Coverage Limits: Maximum Amount of Coverage
+Retention: Amount Retained by Insured Before Coverage Applies
+Gross Written Premium: Total Premium Before Deductions
+Net Written Premium: Premium After Deductions
+Broker Commission: Amount Paid to Broker
+Deductible: Amount Paid by Insured Before Insurance Applies
+Policy Status: Current Status of the Policy
+Endorsements: Additional Policy Modifications or Coverages

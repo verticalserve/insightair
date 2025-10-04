@@ -1,0 +1,50 @@
+# Task Properties: validate_source (FLAT STRUCTURE)
+# All properties flat for easy dynamic parameter replacement
+---
+# Basic Configuration - Flat for easy override
+operation: "validate"
+connection_id: "${source_connection_id}"
+timeout_seconds: 300
+timeout_minutes: 5
+
+# Validation Rules - Flat properties
+min_count: 1
+max_age_hours: 24
+fail_on_validation_error: true
+log_validation_results: true
+
+# Database Properties - Flat
+source_database: "${source_database}"
+source_schema: "${source_schema}"
+source_table: "policy_history"
+
+# Query Template - Complex content but parameters are flat
+validation_query_template: |
+  SELECT 
+    COUNT(*) as record_count,
+    MAX(created_date) as latest_date,
+    MIN(created_date) as earliest_date
+  FROM {source_schema}.{source_table}
+  WHERE created_date >= CURRENT_DATE - INTERVAL '{max_age_hours} hours'
+
+# Runtime Replaceable Parameters
+query_max_age_hours: "${max_age_hours}"
+query_source_schema: "${source_schema}"
+query_source_table: "${source_table}"
+query_date_column: "created_date"
+
+# Validation Thresholds - All flat for easy override
+validation_min_records: "${min_count}"
+validation_max_age_hours: "${max_age_hours}"
+validation_timeout_seconds: "${timeout_seconds}"
+
+# Error Handling - Flat
+error_fail_on_validation: "${fail_on_validation_error}"
+error_log_results: "${log_validation_results}"
+error_retry_count: 3
+error_retry_delay_seconds: 30
+
+# Output Configuration - Flat  
+output_log_level: "INFO"
+output_include_details: true
+output_metrics_enabled: true

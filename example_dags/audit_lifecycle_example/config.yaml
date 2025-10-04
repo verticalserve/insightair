@@ -1,0 +1,57 @@
+# Comprehensive Audit and Lifecycle Management Example
+# This example demonstrates:
+# - Job start/end boundary tasks with audit actions
+# - Task-level audit configuration
+# - Task enable/disable functionality
+# - Task group lifecycle management
+# - Custom audit actions and hooks
+
+workflow_metadata:
+  name: "audit_lifecycle_example"
+  description: "Example workflow demonstrating comprehensive audit and lifecycle management"
+  version: "1.0.0"
+  owner: "data-team"
+  tags: ["audit", "lifecycle", "example"]
+
+dag:
+  dag_id: "audit_lifecycle_example"
+  description: "Comprehensive audit and lifecycle management example"
+  schedule: "0 6 * * *"
+  start_date: "2024-01-01"  
+  catchup: false
+  max_active_runs: 1
+  tags: ["audit", "lifecycle", "framework"]
+
+# Task chain definition with audit and lifecycle management
+task_chain:
+  - task: "job_start"
+  - task_group: "data_processing_group"
+    tasks:
+      - task: "extract_data"
+      - task: "optional_validation"  # This task is disabled
+      - task: "transform_data"
+      - task: "load_data"
+  - task: "generate_reports"
+  - task: "job_end"
+
+# Task group definitions
+task_groups:
+  data_processing_group:
+    description: "Main data processing task group"
+    tooltip: "Extract, validate, transform and load data"
+    audit:
+      enabled: true
+      audit_actions:
+        start:
+          - type: "audit_system"
+            event_type: "TASK_GROUP_START"
+            message: "Data processing group started"
+            level: "INFO"
+            custom_data:
+              component: "data_pipeline"
+              stage: "processing"
+        end:
+          - type: "audit_system"
+            event_type: "TASK_GROUP_END"
+            message: "Data processing group completed"
+            level: "INFO"

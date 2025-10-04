@@ -1,0 +1,263 @@
+# Task Properties: create_metadata
+# Metadata generation task properties
+---
+script_type: "python"
+timeout_minutes: 10
+
+# Complex Python Script - Kept in task file for maintainability
+script_content: |
+  import json
+  import boto3
+  import pandas as pd
+  from datetime import datetime, timezone
+  from airflow.models import Variable
+  
+  def generate_processing_metadata():
+      """Generate comprehensive metadata for processed policy data"""
+      
+      # Get runtime context
+      dag_id = context['dag'].dag_id
+      execution_date = context['ds']
+      task_instance = context['task_instance']
+      
+      # Extract processing statistics from previous tasks
+      validation_stats = task_instance.xcom_pull(task_ids='validate_source', key='stats')
+      extraction_stats = task_instance.xcom_pull(task_ids='extract_policy_data', key='stats') 
+      quality_stats = task_instance.xcom_pull(task_ids='quality_check', key='stats')
+      
+      # Build comprehensive metadata
+      metadata = {
+          # Workflow Information
+          "workflow": {
+              "dag_id": dag_id,
+              "execution_date": execution_date,
+              "processed_at": datetime.now(timezone.utc).isoformat(),
+              "version": "2.1.0",
+              "environment": Variable.get('environment', 'production')
+          },
+          
+          # Source Information  
+          "source": {
+              "database": "${source_database}",
+              "schema": "${source_schema}",
+              "connection_id": "${source_connection_id}",
+              "validation_results": validation_stats or {},
+              "data_freshness_hours": calculate_data_freshness(validation_stats)
+          },
+          
+          # Processing Information
+          "processing": {
+              "engine": "${processing_engine}",
+              "batch_size": int("${batch_size}"),
+              "total_records_processed": extraction_stats.get('record_count', 0) if extraction_stats else 0,
+              "processing_time_seconds": extraction_stats.get('processing_time', 0) if extraction_stats else 0,
+              "parallel_batches": extraction_stats.get('batch_count', 1) if extraction_stats else 1,
+              "compression_applied": True,
+              "partition_strategy": "date"
+          },
+          
+          # Output Information
+          "output": {
+              "target_location": "${target_bucket}/${target_path}/" + execution_date + "/",
+              "format": "${target_format}",
+              "total_files": quality_stats.get('file_count', 0) if quality_stats else 0,
+              "total_size_mb": quality_stats.get('total_size_mb', 0) if quality_stats else 0,
+              "compression_ratio": calculate_compression_ratio(quality_stats)
+          },
+          
+          # Quality Information
+          "quality": {
+              "checks_performed": quality_stats.get('checks_performed', []) if quality_stats else [],
+              "quality_score": quality_stats.get('quality_score', 0) if quality_stats else 0,
+              "issues_found": quality_stats.get('issues', []) if quality_stats else [],
+              "duplicate_records": quality_stats.get('duplicates', 0) if quality_stats else 0,
+              "null_fields_percentage": quality_stats.get('null_percentage', 0) if quality_stats else 0
+          },
+          
+          # Data Lineage
+          "lineage": {
+              "upstream_dependencies": [
+                  {
+                      "type": "database_table",
+                      "name": "${source_schema}.policy_history",
+                      "last_modified": validation_stats.get('latest_date') if validation_stats else None
+                  },
+                  {
+                      "type": "database_table", 
+                      "name": "${source_schema}.policy_types",
+                      "relationship": "lookup"
+                  },
+                  {
+                      "type": "database_table",
+                      "name": "${source_schema}.brokers", 
+                      "relationship": "lookup"
+                  }
+              ],
+              "downstream_systems": [
+                  "text_analytics_pipeline",
+                  "policy_archive_system",
+                  "compliance_reporting"
+              ]
+          },
+          
+          # Business Metrics
+          "business_metrics": {
+              "policies_by_status": calculate_policy_status_distribution(extraction_stats),
+              "premium_statistics": calculate_premium_statistics(extraction_stats),
+              "coverage_territories": get_territory_breakdown(extraction_stats),
+              "broker_distribution": get_broker_distribution(extraction_stats)
+          },
+          
+          # Technical Metrics
+          "technical_metrics": {
+              "memory_usage_mb": get_memory_usage(),
+              "cpu_utilization_percentage": get_cpu_utilization(),
+              "network_io_mb": get_network_io(),
+              "storage_io_mb": get_storage_io()
+          },
+          
+          # Compliance and Audit
+          "compliance": {
+              "data_classification": "confidential",
+              "retention_policy": "${archive_retention_days} days",
+              "encryption_applied": "${encrypt_at_rest}",
+              "audit_trail": generate_audit_trail(),
+              "gdpr_compliant": True,
+              "hipaa_compliant": False
+          }
+      }
+      
+      return metadata
+  
+  def calculate_data_freshness(validation_stats):
+      """Calculate data freshness in hours"""
+      if not validation_stats or 'latest_date' not in validation_stats:
+          return None
+      # Implementation here
+      return 2  # Example
+  
+  def calculate_compression_ratio(quality_stats):
+      """Calculate compression ratio"""
+      if not quality_stats:
+          return None
+      # Implementation here  
+      return 0.75  # Example
+  
+  def calculate_policy_status_distribution(extraction_stats):
+      """Calculate distribution of policies by status"""
+      # Implementation here
+      return {"ACTIVE": 850, "PENDING_RENEWAL": 125, "EXPIRED": 25}
+  
+  def calculate_premium_statistics(extraction_stats):
+      """Calculate premium statistics"""
+      # Implementation here
+      return {
+          "total_gross_premium": 15250000.00,
+          "average_premium": 15250.00,
+          "median_premium": 12500.00
+      }
+  
+  def get_territory_breakdown(extraction_stats):
+      """Get coverage territory breakdown"""
+      # Implementation here
+      return {"US": 75, "CA": 15, "EU": 10}
+  
+  def get_broker_distribution(extraction_stats):
+      """Get broker distribution"""
+      # Implementation here
+      return {"Broker_A": 40, "Broker_B": 35, "Broker_C": 25}
+  
+  def get_memory_usage():
+      """Get current memory usage"""
+      # Implementation here
+      return 2048
+  
+  def get_cpu_utilization():
+      """Get CPU utilization"""
+      # Implementation here
+      return 65
+  
+  def get_network_io():
+      """Get network I/O metrics"""
+      # Implementation here
+      return 512
+  
+  def get_storage_io():
+      """Get storage I/O metrics"""
+      # Implementation here
+      return 1024
+  
+  def generate_audit_trail():
+      """Generate audit trail"""
+      return [
+          {
+              "timestamp": datetime.now(timezone.utc).isoformat(),
+              "action": "data_extraction",
+              "user": "airflow_system",
+              "source_system": "${source_database}"
+          }
+      ]
+  
+  # Generate and save metadata
+  metadata = generate_processing_metadata()
+  
+  # Save to S3
+  s3_client = boto3.client('s3')
+  metadata_key = "${target_path}/{{ ds }}/metadata.json"
+  
+  s3_client.put_object(
+      Bucket="${target_bucket}",
+      Key=metadata_key,
+      Body=json.dumps(metadata, indent=2, default=str),
+      ContentType='application/json'
+  )
+  
+  # Also save detailed schema information
+  schema_metadata = {
+      "schema_version": "2.1.0",
+      "fields": [
+          {"name": "policy_number", "type": "string", "description": "Unique policy identifier"},
+          {"name": "company", "type": "string", "description": "Insurance company name"},
+          {"name": "policy_type", "type": "string", "description": "Category of insurance policy"},
+          {"name": "coverage_territory", "type": "string", "description": "Geographical coverage area"},
+          {"name": "broker_name", "type": "string", "description": "Insurance broker name"}
+      ],
+      "text_format": {
+          "delimiter": "=====================================",
+          "encoding": "UTF-8",
+          "compression": "gzip",
+          "line_ending": "\\n"
+      }
+  }
+  
+  schema_key = "${target_path}/{{ ds }}/schema.json"
+  s3_client.put_object(
+      Bucket="${target_bucket}",
+      Key=schema_key,
+      Body=json.dumps(schema_metadata, indent=2),
+      ContentType='application/json'
+  )
+  
+  print(f"Metadata saved to s3://${target_bucket}/{metadata_key}")
+  print(f"Schema saved to s3://${target_bucket}/{schema_key}")
+  
+  # Return processing summary for downstream tasks
+  return {
+      "metadata_location": f"s3://${target_bucket}/{metadata_key}",
+      "schema_location": f"s3://${target_bucket}/{schema_key}",
+      "records_processed": metadata["processing"]["total_records_processed"],
+      "quality_score": metadata["quality"]["quality_score"]
+  }
+
+# Output Configuration
+output_location: "${target_bucket}/${target_path}/{{ ds }}/metadata.json"
+schema_location: "${target_bucket}/${target_path}/{{ ds }}/schema.json"
+
+# Dependencies
+required_packages:
+  - "boto3>=1.26.0"
+  - "pandas>=1.5.0"
+
+# Error Handling
+continue_on_metadata_error: false
+log_metadata_generation: true

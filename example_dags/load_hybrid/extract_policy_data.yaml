@@ -1,0 +1,140 @@
+# Task Properties: extract_policy_data (FLAT STRUCTURE)
+# All properties flat for dynamic parameter replacement - complex queries maintained
+---
+# Source Configuration - Flat for easy override
+connection_id: "${source_connection_id}"
+database: "${source_database}"
+schema: "${source_schema}"
+source_table_primary: "policy_history"
+source_table_types: "policy_types"
+source_table_brokers: "brokers"
+source_table_underwriters: "underwriters"
+source_table_products: "products"
+source_table_endorsements: "policy_endorsements"
+
+# Complex Extraction Query - Kept in separate file for maintainability
+extraction_query: |
+  SELECT 
+    p.policy_number,
+    p.company_name as company,
+    pt.policy_type_name as policy_type,
+    p.coverage_territory,
+    b.broker_name,
+    p.policy_start_date,
+    p.policy_end_date,
+    p.gross_written_premium,
+    p.net_written_premium,
+    p.deductible_amount,
+    p.policy_status,
+    p.created_date,
+    p.updated_date,
+    -- Complex policy details concatenation
+    CONCAT(
+      'Coverage Limits: ', COALESCE(p.coverage_limits, 'N/A'), '; ',
+      'Retention: ', COALESCE(p.retention_amount, 0), '; ',
+      'Underwriter: ', COALESCE(u.underwriter_name, 'N/A'), '; ',
+      'Product: ', COALESCE(pr.product_name, 'N/A'), '; ',
+      'Endorsements: ', COALESCE(e.endorsement_details, 'None')
+    ) as policy_details
+  FROM ${source_schema}.policy_history p
+  LEFT JOIN ${source_schema}.policy_types pt ON p.policy_type_id = pt.policy_type_id
+  LEFT JOIN ${source_schema}.brokers b ON p.broker_id = b.broker_id  
+  LEFT JOIN ${source_schema}.underwriters u ON p.underwriter_id = u.underwriter_id
+  LEFT JOIN ${source_schema}.products pr ON p.product_id = pr.product_id
+  LEFT JOIN (
+    SELECT 
+      policy_id,
+      STRING_AGG(endorsement_description, '; ') as endorsement_details
+    FROM ${source_schema}.policy_endorsements 
+    GROUP BY policy_id
+  ) e ON p.policy_id = e.policy_id
+  WHERE p.created_date >= '{{ ds }}'
+    AND p.policy_status IN ('ACTIVE', 'PENDING_RENEWAL', 'EXPIRED')
+  ORDER BY p.created_date, p.policy_number
+
+# Output Configuration - All flat for easy override
+output_bucket: "${target_bucket}"
+output_path: "${target_path}/{{ ds }}"
+output_format: "${target_format}"
+output_compression: "gzip"
+output_include_headers: true
+batch_size: "${batch_size}"
+max_parallel_batches: "${max_parallel_tasks}"
+
+# Processing Parameters - Flat for runtime override
+processing_batch_size: "${batch_size}"
+processing_timeout_minutes: "${timeout_minutes}"
+processing_parallel_enabled: "${enable_parallel_processing}"
+processing_max_parallel: "${max_parallel_tasks}"
+processing_fetch_size: 10000
+processing_connection_pool_size: 5
+processing_query_timeout_seconds: 1800
+
+# Text Formatting Parameters - Flat
+text_template_currency_format: ",.2f"
+text_template_date_format: "%Y-%m-%d"
+text_template_include_metadata: true
+text_template_separator: "====================================="
+
+# Text Template - Complex formatting kept in task file
+text_template: |
+  =====================================
+  POLICY RECORD
+  =====================================
+  Policy Number: {policy_number}
+  Company: {company}
+  Policy Type: {policy_type}
+  Coverage Territory: {coverage_territory}
+  Broker: {broker_name}
+  
+  COVERAGE DETAILS:
+  Start Date: {policy_start_date}
+  End Date: {policy_end_date}
+  Status: {policy_status}
+  
+  FINANCIAL INFORMATION:
+  Gross Written Premium: ${gross_written_premium:,.2f}
+  Net Written Premium: ${net_written_premium:,.2f}
+  Deductible: ${deductible_amount:,.2f}
+  
+  ADDITIONAL DETAILS:
+  {policy_details}
+  
+  PROCESSING METADATA:
+  Created: {created_date}
+  Last Updated: {updated_date}
+  Extracted: {{ ts }}
+  =====================================
+  
+# Data Quality Options - Flat
+quality_validate_output: true
+quality_remove_null_records: true
+quality_escape_special_characters: true
+quality_max_null_percentage: 5
+
+# Partitioning Strategy - Flat
+partition_by: "created_date"
+partition_format: "yyyy/MM/dd"
+partition_enabled: true
+
+# Error Handling - Flat
+error_continue_on_error: false
+error_max_error_records: 100
+error_output_bucket: "${target_bucket}"
+error_output_path: "errors/{{ ds }}"
+error_log_errors: true
+error_retry_count: 3
+
+# Performance Tuning - Flat (already moved above)
+# All performance parameters are now flat for easy override
+
+# Monitoring and Logging - Flat
+monitoring_log_progress: true
+monitoring_log_batch_completion: true
+monitoring_metrics_enabled: true
+monitoring_log_level: "INFO"
+
+# Security - Flat
+security_encrypt_output: "${encrypt_at_rest}"
+security_mask_sensitive_fields: true
+security_audit_log_enabled: true

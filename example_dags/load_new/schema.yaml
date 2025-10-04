@@ -1,0 +1,118 @@
+# Configuration Schema Definition
+# Used for validation and documentation of config.yaml structure
+---
+schema_version: "2.0"
+description: "InsightAir Enhanced Configuration Schema"
+
+definitions:
+  metadata:
+    type: object
+    required: [name, version, description, category, priority, data_group]
+    properties:
+      name:
+        type: string
+        description: "Unique workflow identifier"
+        pattern: "^[a-z0-9-_]+$"
+      version:
+        type: string  
+        description: "Semantic version of the workflow"
+        pattern: "^\\d+\\.\\d+\\.\\d+$"
+      description:
+        type: string
+        description: "Human-readable workflow description"
+      category:
+        type: string
+        enum: [data_processing, data_ingestion, data_export, analytics, ml_training]
+      priority:
+        type: string
+        enum: [P1, P2, P3, P4, P5]
+      data_group:
+        type: string
+        enum: [development, staging, production]
+
+  properties:
+    type: object
+    properties:
+      source:
+        type: object
+        properties:
+          database: {type: string}
+          schema: {type: string}
+          connection_id: {type: string}
+      target:
+        type: object  
+        properties:
+          bucket: {type: string}
+          path: {type: string}
+          format: {type: string, enum: [text, json, csv, parquet]}
+      processing:
+        type: object
+        properties:
+          engine: {type: string, enum: [glue, emr, ray, spark]}
+          batch_size: {type: integer, minimum: 1}
+          timeout_minutes: {type: integer, minimum: 1, maximum: 1440}
+          retry_count: {type: integer, minimum: 0, maximum: 10}
+      quality:
+        type: object
+        properties:
+          enable_checks: {type: boolean}
+          min_record_count: {type: integer, minimum: 0}
+          max_null_percentage: {type: number, minimum: 0, maximum: 100}
+      notifications:
+        type: object
+        properties:
+          ops_emails: {type: array, items: {type: string, format: email}}
+          alert_on_failure: {type: boolean}
+          alert_on_sla_miss: {type: boolean}  
+          sla_minutes: {type: integer, minimum: 1}
+
+  task:
+    type: object
+    required: [name, type, description]
+    properties:
+      name:
+        type: string
+        description: "Unique task identifier within workflow"
+        pattern: "^[a-z0-9_]+$"
+      type:
+        type: string
+        enum: [START, END, DB, DB_TO_TEXT, DQ, SCRIPT, ARCHIVE, EMAIL, BQ, GLUE, EMR, RAY]
+      description:
+        type: string
+        description: "Task description for documentation"
+      parents:
+        type: array
+        items: {type: string}
+        description: "List of parent task names"
+      timeout_minutes:
+        type: integer
+        minimum: 1
+        maximum: 1440
+      properties:
+        type: object
+        description: "Task-specific configuration properties"
+
+  environments:
+    type: object
+    patternProperties:
+      "^(development|staging|production)$":
+        type: object
+        properties:
+          properties:
+            $ref: "#/definitions/properties"
+
+# Root schema
+type: object
+required: [metadata, properties, tasks]
+properties:
+  metadata:
+    $ref: "#/definitions/metadata"
+  properties:
+    $ref: "#/definitions/properties"  
+  tasks:
+    type: array
+    items:
+      $ref: "#/definitions/task"
+    minItems: 2
+  environments:
+    $ref: "#/definitions/environments"
